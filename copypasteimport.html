@@ -1,0 +1,238 @@
+<html>
+<!-- CopyPasteImport - v. 0.1 
+<!-- Copy and paste from a spreadsheet (OpenOffice/LibreOffice Calc, Excel, Google Spreadsheets) and import into a database
+<!-- by mir (mir.rodriguez@greenpeace.org)
+<!-- Inspired by something I saw in MailChimp and adapted from answer in Stack Overflow by Tatu Ulmanen (http://stackoverflow.com/users/198707/tatu-ulmanen) at http://stackoverflow.com/questions/2006468/copy-paste-from-excel-to-a-web-page/2006514#2006514 
+<!-- Code is cc-by-sa-3.0 -- Use it, remix it, share alike and give attribution -->
+
+<script src="http://localhost/emily/third_party/modules/grocery_crud/js/jquery-1.10.2.min.js"></script>
+
+<script type="text/javascript">
+
+    $(document).ready(function() {
+
+	var cells = new Array();
+	var rows = new Array();
+	var selectedfields = new Array();
+	var importjson = new String();
+
+	// Add here any fields you want to have imported, as per database
+	// fields[0] are field names from table, fields[1] are display names.  Eventually this should be a separate "import fields" table in database
+
+	var fields = new Array();
+
+	fields[0] = ["family_names", "names", "nationality", "date_of_birth", "place_of_birth", "passport_expiration_date", "passport_number", "sex", "email_address", "phone_numbers", "nickname"];
+	fields[1] = ["Family names", "Given names", "Nationality", "DOB", "POB", "Passport exp date", "Passport number", "Sex", "Email", "Tel", "Nickname"];
+
+	// Displays the table extracted from pasted data and drop down lists of fields for each column
+
+	$('textarea[name=spreadsheet_data]').on('keyup input', processpaste);
+
+
+	// Runs when import button is clicked
+
+	$('#import').click(function() {
+
+		var importdata = new Array();
+
+		// Gets list of fields from drop-downs and checks for repeats
+
+		var selectedfields = new Array();
+		$('tr#fields td select').each(function(i) {
+		selectedfields[i] = (fields[0][$(this).val()]);
+		});
+
+		if (check_duplicates(selectedfields)) {
+		alert("Please check field list for duplicates");
+		}
+		else {
+		// Make object-array with field names and data
+		for (r in rows) {
+			importdata[r] = {};
+			importdata[r] = array_combine(selectedfields, cells[r]);
+		}
+		send_data(importdata);
+		}
+	});
+
+	// Functions 
+
+	function processpaste() {
+
+		var table = $('<table border="1px solid black"/>');
+		var pasted = $(this).val();
+
+		var commarep = /[ ]*,/g; // Regex for converting commas (i.e. full names) to tabs 
+		var emptyrowrep = /^\s*[\r\n]/gm;  // Regex for removing empty lines
+		trimmedpaste = pasted.trim();
+		var noemptyrow = trimmedpaste.replace(emptyrowrep, "");
+		var datanocomma = noemptyrow.replace(commarep, "\t");
+		rows.length = 0;
+		rows = datanocomma.split("\n");
+		var lenrows = rows.length;
+		cells.length = 0;
+
+		maxlen = 0;
+		for (r in rows)
+		{
+		// Using jQuery trim to trim tabs (useful because some rows don't have data in last column)
+		rows[r] = $.trim(rows[r]);
+		cells[r] = $.map(rows[r].split("\t"), $.trim);
+		if ((cells[r].length) > maxlen) {
+			maxlen = cells[r].length;
+		}
+		}
+
+		// Check that there are not more columns in pasted text than max available fields as set above. 
+
+		if (maxlen > fields[0].length) {
+		alert("You have too many columns. Max number of import columns is " + fields[0].length);
+		return false;
+		}
+
+		// Pads row arrays to have all same length as row with most columns
+		for (r in rows)
+		{
+		cells[r] = array_pad(cells[r], maxlen, "");
+		}
+
+		// Creates row of drop-down field selection boxes 
+
+		var selectrow = $('<tr id="fields"/>');
+		for (var i = 0; i < maxlen; i++) {
+
+		var selectcell = $('<td />');
+		var fieldselect = $('<select />');
+		for (var f = 0; f < fields[0].length; f++) {
+			var option = '<option value="' + f + '" ';
+			if (i == f) {
+			option = option + 'selected=true';
+			}
+			fieldselect.append(option + '">' + fields[1][f])
+		}
+		selectcell.append(fieldselect);
+		selectrow.append(selectcell);
+		}
+
+		table.append(selectrow);
+
+		// Creates table with parsed pasted text and inserts in page
+
+		for (r in rows) {
+		var row = $('<tr />');
+		for (c in cells[r]) {
+			row.append('<td>' + cells[r][c] + '</td>');
+		}
+		table.append(row);
+		}
+
+		$('#spreadsheet_table').html(table);
+	}
+
+	function array_combine(a, b) {
+		if (a.length != b.length) {
+		return false;
+		}
+		else {
+		new_array = new Object();
+		for (i = 0; i < a.length; i++) {
+			new_array[a[i]] = b[i];
+		}
+		return new_array;
+		}
+	}
+
+	function array_pad(input, pad_size, pad_value) {
+		//  discuss at: http://phpjs.org/functions/array_pad/
+		// original by: Waldo Malqui Silva
+
+		var pad = [],
+			newArray = [],
+			newLength,
+			diff = 0,
+			i = 0;
+
+		if (Object.prototype.toString.call(input) === '[object Array]' && !isNaN(pad_size)) {
+		newLength = ((pad_size < 0) ? (pad_size * -1) : pad_size);
+		diff = newLength - input.length;
+
+		if (diff > 0) {
+			for (i = 0; i < diff; i++) {
+			newArray[i] = pad_value;
+			}
+			pad = ((pad_size < 0) ? newArray.concat(input) : input.concat(newArray));
+		} else {
+			pad = input;
+		}
+		}
+
+		return pad;
+	}
+
+
+	function check_duplicates(a) {
+		var textHash = {};
+		for (var i = 0; i < a.length; i++) {
+		var key = a[i];
+		if (textHash[key]) {
+			return true;
+		}
+		else {
+			textHash[key] = true;
+		}
+		}
+		return false;
+	}
+
+	function send_data(datatosend) {
+		importjson = JSON.stringify(datatosend);
+		importjson.trim();
+
+		$.ajax({
+		type: "POST",
+		url: "controller.php",
+		data: {json: importjson},
+		error: function(xhr, textStatus, errorThrown) {
+			alert('An error occurred! ' + errorThrown);
+		},
+		success: function(res) {
+			resjson = $.parseJSON(res);
+			if (resjson.status === "success") {
+			alert(resjson.message);
+			}
+			if (resjson.status === "error") {
+			alert(resjson.message);
+			}
+
+		}
+		});
+	}
+
+    });
+
+</script>
+
+<body>
+		<form>
+			<div>
+
+			<p><strong>1. Paste data from spreadsheet here:</strong></p>
+
+			</div>
+
+				<textarea class="import-textarea" name="spreadsheet_data" /></textarea>
+
+			<div style="min-height: 100px;">
+
+				<p><strong>2. Select the fields that correspond to each column: </strong></p>		   
+
+				<div id="spreadsheet_table"></div>
+
+			</div>   
+
+				<a id="import" role="button" href="javascript:void(0)">Import</a>
+
+		</form>
+
+</body>
+</html>
