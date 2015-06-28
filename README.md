@@ -1,6 +1,6 @@
 # CopyPasteImport 0.1
 
-This PHP + jQuery (though easily done with pure Javascript) takes a bunch of columns and rows copied and pasted from a spreadsheet (i.e. OpenOffice Calc, Excel or Google Spreadsheets) and imports them into a database.
+This Javascript (jQuery, though likely easy to do with pure Javascript) + PHP code takes a bunch of columns and rows copied and pasted from a spreadsheet (i.e. OpenOffice Calc, Excel or Google Spreadsheets) and imports them into a database.
 
 After pasting the data from the spreadsheet, select the field names from a drop down list and click import. You need to add your own database writing code in order to get it working.
 
